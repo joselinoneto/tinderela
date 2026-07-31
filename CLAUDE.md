@@ -18,6 +18,16 @@ Users ask in Portuguese or English; answer in the language of the question.
 6. **UEX data is crowdsourced** — phrase answers as "last reported at …", never
    as "the price is". Include `fetched_at`/age so the player can judge.
 
+## Answering player questions
+
+- Route/run requests → delegate to the `route-planner` subagent (three options
+  ranked by estimated profit/hour). Mining/refining → `mining-advisor`.
+  Trend/"sell now or wait" → `market-analyst`.
+- Before delivering any final answer containing prices, routes or profits, run
+  the `data-validator` subagent on the draft and apply its report.
+- Slash commands: `/preco <commodity>`, `/rota <nave> <orçamento>`,
+  `/refinar <minério> <SCU>`.
+
 ## Working on this repo
 
 - Strict TypeScript, no `any`. Zod schemas validate every tool input and output.

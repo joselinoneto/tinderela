@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sc-trade-intel": {
+      "command": "npx",
+      "args": ["tsx", "src/server.ts"]
+    }
+  }
+}
