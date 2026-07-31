@@ -1,0 +1,35 @@
+{
+  "name": "sc-trade-intel",
+  "version": "0.1.0",
+  "description": "Star Citizen trade intelligence MCP server backed by the UEX API 2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "dist/server.js",
+  "bin": {
+    "sc-trade-intel": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "smoke": "tsx scripts/smoke.ts",
+    "record-fixtures": "tsx scripts/record-fixtures.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "better-sqlite3": "^11.10.0",
+    "dotenv": "^16.5.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.17.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  }
+}
