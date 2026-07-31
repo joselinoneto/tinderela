@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__sc-trade-intel"
+    ],
+    "defaultMode": "auto"
+  },
+  "enableAllProjectMcpServers": true
+}
