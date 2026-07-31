@@ -51,6 +51,22 @@ SQLite (`better-sqlite3`), TTL per data class (configured in `src/config.ts`):
 prices/routes ~15 min, terminals/distances/vehicles/refineries ~7 days, static
 reference data ~30 days. Every cached record stores `fetched_at`.
 
+## Personal market scanner (no LLM)
+
+Scan every tradeable commodity's routes for your ship and budget and print
+the top table — pure TypeScript, zero tokens, ~6 s cold / ~0.1 s while the
+15-minute cache is warm:
+
+```bash
+npm run scan -- --ship C2 --budget 800000
+npm run scan -- --ship Caterpillar --budget 2500000 --top 15 --sort profit
+npm run scan -- --ship C2 --budget 800000 --from "Area 18" --illegal
+```
+
+Sort keys: `hour` (est. profit/hour, default) | `profit` | `roi` | `scu` | `gm`.
+Rows are flagged `⚠ILLEGAL` and `!old-gv` (report from an older game version);
+time and profit/hour columns are heuristics (constants in `src/config.ts`).
+
 ## Development
 
 ```bash
