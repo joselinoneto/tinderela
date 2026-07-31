@@ -1,0 +1,83 @@
+[
+ {
+  "id": 1,
+  "name": "Cormack",
+  "code": "COR",
+  "rating_yield": 1,
+  "rating_cost": 2,
+  "rating_speed": 3,
+  "date_added": 1697062480
+ },
+ {
+  "id": 2,
+  "name": "Dinyx Solventation",
+  "code": "DIN",
+  "rating_yield": 3,
+  "rating_cost": 1,
+  "rating_speed": 1,
+  "date_added": 1697062480
+ },
+ {
+  "id": 3,
+  "name": "Electrostarolysis",
+  "code": "EST",
+  "rating_yield": 2,
+  "rating_cost": 2,
+  "rating_speed": 2,
+  "date_added": 1697062480
+ },
+ {
+  "id": 4,
+  "name": "Gaskin Process",
+  "code": "GAS",
+  "rating_yield": 2,
+  "rating_cost": 3,
+  "rating_speed": 3,
+  "date_added": 1697062480
+ },
+ {
+  "id": 5,
+  "name": "Pyrometric Chromalysis",
+  "code": "PYR",
+  "rating_yield": 3,
+  "rating_cost": 3,
+  "rating_speed": 1,
+  "date_added": 1697062480
+ },
+ {
+  "id": 6,
+  "name": "Kazen Winnowing",
+  "code": "KZW",
+  "rating_yield": 1,
+  "rating_cost": 2,
+  "rating_speed": 2,
+  "date_added": 1697062480
+ },
+ {
+  "id": 7,
+  "name": "Thermonatic Deposition",
+  "code": "TND",
+  "rating_yield": 2,
+  "rating_cost": 2,
+  "rating_speed": 1,
+  "date_added": 1697062480
+ },
+ {
+  "id": 8,
+  "name": "Ferron Exchange",
+  "code": "FRX",
+  "rating_yield": 3,
+  "rating_cost": 2,
+  "rating_speed": 1,
+  "date_added": 1697062480
+ },
+ {
+  "id": 9,
+  "name": "XCR Reaction",
+  "code": "XCR",
+  "rating_yield": 1,
+  "rating_cost": 3,
+  "rating_speed": 3,
+  "date_added": 1697062480
+ }
+]
