@@ -66,11 +66,13 @@ export class UexEndpoints {
     return this.client.get<CommodityRoute[]>('commodities_routes', params);
   }
 
-  terminalDistance(idOrigin: number, idDestination: number): Promise<TerminalDistance[]> {
-    return this.client.get<TerminalDistance[]>('terminals_distances', {
+  /** UEX returns a bare object for a single pair; normalize to an array. */
+  async terminalDistance(idOrigin: number, idDestination: number): Promise<TerminalDistance[]> {
+    const data = await this.client.get<TerminalDistance | TerminalDistance[]>('terminals_distances', {
       id_terminal_origin: idOrigin,
       id_terminal_destination: idDestination,
     });
+    return Array.isArray(data) ? data : [data];
   }
 
   orbitDistances(idSystemOrigin: number, idSystemDestination: number): Promise<OrbitDistance[]> {

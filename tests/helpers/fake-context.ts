@@ -39,10 +39,13 @@ export class FakeUex implements UexApi {
     return this.load<never>('terminals_stanton', `terminals:${idStarSystem ?? 'all'}`);
   }
   commodityPrices(params: { id_commodity?: number; id_terminal?: number }) {
-    if (params.id_commodity !== 47) {
-      throw new Error(`no commodities_prices fixture for ${JSON.stringify(params)}`);
-    }
-    return this.load<never>('commodities_prices_laranite', `commodities_prices:${params.id_commodity}`);
+    const fixtures: Record<number, string> = {
+      47: 'commodities_prices_laranite',
+      58: 'commodities_prices_quantainium',
+    };
+    const name = params.id_commodity !== undefined ? fixtures[params.id_commodity] : undefined;
+    if (!name) throw new Error(`no commodities_prices fixture for ${JSON.stringify(params)}`);
+    return this.load<never>(name, `commodities_prices:${params.id_commodity}`);
   }
   commodityPricesAll() {
     return this.load<never>('commodities_prices_all', 'commodities_prices_all');
@@ -64,8 +67,10 @@ export class FakeUex implements UexApi {
     }
     return this.load<never>('commodities_routes_laranite', `routes:${params.id_commodity}`);
   }
-  terminalDistance(idOrigin: number, idDestination: number) {
-    return this.load<never>('terminals_distance_sample', `distance:${idOrigin}:${idDestination}`);
+  async terminalDistance(idOrigin: number, idDestination: number) {
+    // Mirrors UexEndpoints: the API returns a bare object for a single pair.
+    const data = await this.load<unknown>('terminals_distance_sample', `distance:${idOrigin}:${idDestination}`);
+    return (Array.isArray(data) ? data : [data]) as never;
   }
   orbitDistances(a: number, b: number) {
     return this.load<never>('orbits_distances_stanton', `orbits:${a}:${b}`);

@@ -14,7 +14,7 @@ const SAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
   where_to_sell: { commodity: 'laranita', system: 'Stanton', max_results: 3 },
   price_history: { commodity: 'Laranite', terminal: 'TDD Area 18', days: 30 },
   market_ranking: { kind: 'spread', limit: 5 },
-  find_best_routes: { origin: 'Area 18', capacity_scu: 696, budget_uec: 800_000, max_results: 3 },
+  find_best_routes: { destination: 'Area 18', capacity_scu: 696, budget_uec: 800_000, max_results: 3 },
   distance_between: { origin_terminal: 'TDD Area 18', destination_terminal: 'TDD Orison' },
   fuel_cost_estimate: { origin_terminal: 'TDD Area 18', destination_terminal: 'TDD Orison', vehicle: 'C2' },
   get_vehicle: { name: 'C2' },

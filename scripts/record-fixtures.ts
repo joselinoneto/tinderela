@@ -42,6 +42,8 @@ async function main(): Promise<void> {
   const firstTerminal = laranitePrices[0];
   if (!firstTerminal) throw new Error('no Laranite prices returned');
 
+  const QUANTAINIUM_ID = 58;
+  save('commodities_prices_quantainium', await uex.commodityPrices({ id_commodity: QUANTAINIUM_ID }));
   save('commodities_prices_all', await uex.commodityPricesAll());
   save('commodities_raw_prices_all', await uex.commodityRawPricesAll());
   save(

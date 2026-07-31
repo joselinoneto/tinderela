@@ -166,6 +166,7 @@ async function loadSearchables(
             space_station: t.space_station_name,
             outpost: t.outpost_name,
             is_available_live: t.is_available_live === 1,
+            is_refinery: t.is_refinery === 1,
             max_container_size: t.max_container_size,
           },
         })),
