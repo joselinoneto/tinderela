@@ -77,6 +77,16 @@ describe('resolveOne', () => {
     if (result.outcome === 'ambiguous') expect(result.candidates.length).toBeGreaterThan(1);
   });
 
+  it('prefers the refined variant when raw and refined tie exactly', async () => {
+    const ctx = makeTestContext();
+    const result = await resolveOne(ctx, 'Gold', 'commodity');
+    expect(result.outcome).toBe('ok');
+    if (result.outcome === 'ok') {
+      expect(result.candidate.name).toBe('Gold');
+      expect(result.candidate.extra['is_raw']).toBe(false);
+    }
+  });
+
   it('returns not_found for gibberish', async () => {
     const ctx = makeTestContext();
     const result = await resolveOne(ctx, 'xyzzyplugh', 'commodity');

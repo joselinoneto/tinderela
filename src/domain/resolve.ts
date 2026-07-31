@@ -277,6 +277,15 @@ export async function resolveOne(
   if (!second || best.score - second.score >= 0.15 || (best.score === 1 && second.score < 1)) {
     return { outcome: 'ok', candidate: best };
   }
+  // "Gold" matches both Gold and Gold (Ore) exactly (they share a code).
+  // Players mean the refined commodity unless they say raw/ore.
+  if (type === 'commodity') {
+    const exact = candidates.filter((c) => c.score === 1);
+    const nonRaw = exact.filter((c) => c.extra['is_raw'] !== true);
+    if (exact.length > 1 && nonRaw.length === 1 && nonRaw[0]) {
+      return { outcome: 'ok', candidate: nonRaw[0] };
+    }
+  }
   return { outcome: 'ambiguous', candidates };
 }
 
