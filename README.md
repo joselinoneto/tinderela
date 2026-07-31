@@ -67,6 +67,25 @@ Sort keys: `hour` (est. profit/hour, default) | `profit` | `roi` | `scu` | `gm`.
 Rows are flagged `⚠ILLEGAL` and `!old-gv` (report from an older game version);
 time and profit/hour columns are heuristics (constants in `src/config.ts`).
 
+## Discord bot
+
+`src/bot/` runs a Discord bot that answers free-text questions (PT/EN) by
+driving the same 14 tools through the Anthropic SDK tool runner — no MCP
+transport involved; the tools are called in-process. The CLAUDE.md hard rules
+ship as its system prompt.
+
+```bash
+# .env needs: DISCORD_BOT_TOKEN, ANTHROPIC_API_KEY (plus UEX_API_TOKEN)
+npm run bot
+```
+
+Setup: create an app + bot at https://discord.com/developers/applications,
+enable the **Message Content** intent, invite it with the `bot` scope +
+Send Messages permission, and put the token in `.env`. The bot answers when
+mentioned (`@SC Trade Intel qual o preço da laranita?`) or in DMs, with a
+30-second per-user cooldown. It uses its own cache file (`bot-cache.db`) so it
+never contends with a local Claude Code session.
+
 ## Development
 
 ```bash
