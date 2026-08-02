@@ -3,6 +3,8 @@ import { buildConversation, cleanContent, threadNameFor } from '../src/bot/conve
 import type { RawMessage } from '../src/bot/conversation.js';
 
 const BOT_ID = 'bot-1';
+/** Discord mentions are numeric snowflakes, not names. */
+const MENTION = '<@100200300400500600>';
 
 let seq = 0;
 function msg(authorId: string, content: string, at = ++seq): RawMessage {
@@ -24,7 +26,7 @@ describe('cleanContent', () => {
 describe('buildConversation', () => {
   it('orders by timestamp and labels our own messages as assistant', () => {
     const turns = buildConversation(
-      [msg('user-1', 'e com a Caterpillar?', 3), msg('user-1', '<@bot> melhor rota?', 1), msg(BOT_ID, 'Três opções: …', 2)],
+      [msg('user-1', 'e com a Caterpillar?', 3), msg('user-1', `${MENTION} melhor rota?`, 1), msg(BOT_ID, 'Três opções: …', 2)],
       BOT_ID,
     );
     expect(turns).toEqual([
@@ -50,7 +52,7 @@ describe('buildConversation', () => {
         msg('user-1', 'rota?', 2),
         msg(BOT_ID, '⚠️ Something went wrong fetching market data', 3),
         msg('bot-other', 'unrelated bot chatter', 4),
-        msg('user-1', '<@bot>', 5),
+        msg('user-1', MENTION, 5),
         msg('user-1', 'e agora?', 6),
       ],
       BOT_ID,

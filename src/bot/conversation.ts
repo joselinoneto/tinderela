@@ -21,9 +21,12 @@ export interface RawMessage {
  */
 const TRANSIENT_PREFIXES = ['⏳', '⚠️'];
 
-/** Strips mention tokens (`<@123>`, `<@!123>`) and surrounding whitespace. */
+/** Strips mention tokens (`<@123>`, `<@!123>`, `<@&123>`) and extra whitespace. */
 export function cleanContent(content: string): string {
-  return content.replace(/<@!?\d+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return content
+    .replace(/<@[!&]?\d+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** Drops duplicates by message id, keeping the first occurrence. */
