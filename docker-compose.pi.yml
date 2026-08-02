@@ -1,0 +1,23 @@
+# Runs on the Raspberry Pi as docker-compose.yml (copied there by
+# scripts/deploy-pi.sh). Expects a .env next to it with UEX_API_TOKEN,
+# ANTHROPIC_API_KEY and DISCORD_BOT_TOKEN.
+services:
+  bot:
+    image: sc-trade-intel-bot:latest
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      SC_TRADE_DB: /data/bot-cache.db
+    volumes:
+      - bot-data:/data
+    # keep headroom on the Pi 3's 1 GB of RAM
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  bot-data:
