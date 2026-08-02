@@ -88,6 +88,25 @@ never contends with a local Claude Code session.
 
 ## Deploying the bot to a Raspberry Pi
 
+### On the Pi itself
+
+Everything runs from a clone of this repo on the Pi — no dev machine involved:
+
+```bash
+git clone https://github.com/joselinoneto/tinderela.git
+cd tinderela
+cp .env.example .env
+nano .env                                          # the three tokens
+docker compose -f docker-compose.pi.yml up -d --build
+docker compose -f docker-compose.pi.yml logs -f
+```
+
+The Pi builds its own image (native, no emulation) — a couple of minutes on a
+Pi 4/5, considerably longer on a Pi 3, where `better-sqlite3` compiles from
+source. Later updates are `git pull` then the same `up -d --build`.
+
+### From a dev machine
+
 ```bash
 ./scripts/deploy-pi.sh pi@raspberrypi.local     # Git Bash on Windows
 ```

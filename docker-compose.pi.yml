@@ -1,10 +1,20 @@
-# Runs on the Raspberry Pi as docker-compose.yml (copied there by
-# scripts/deploy-pi.sh). Expects a .env next to it with UEX_API_TOKEN,
-# ANTHROPIC_API_KEY and DISCORD_BOT_TOKEN.
+# Runs the bot on the Raspberry Pi. Two ways to use it, both needing a .env
+# beside it with UEX_API_TOKEN, ANTHROPIC_API_KEY and DISCORD_BOT_TOKEN:
+#
+#   on the Pi, from a clone of this repo:
+#     docker compose -f docker-compose.pi.yml up -d --build
+#
+#   from a dev machine (copies this file to the Pi as docker-compose.yml):
+#     ./scripts/deploy-pi.sh pi@raspberrypi.local
 services:
   bot:
     image: sc-trade-intel-bot:latest
-    # the image is built locally and loaded over ssh — it is not on any registry
+    # Only used when running from a clone of the repo on the Pi; the deploy
+    # script copies this file on its own and loads a prebuilt image instead.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # the image is built locally or on the Pi — it is not on any registry
     pull_policy: never
     restart: unless-stopped
     init: true
