@@ -81,10 +81,32 @@ npm run bot
 
 Setup: create an app + bot at https://discord.com/developers/applications,
 enable the **Message Content** intent, invite it with the `bot` scope +
-Send Messages permission, and put the token in `.env`. The bot answers when
-mentioned (`@SC Trade Intel qual o preço da laranita?`) or in DMs, with a
-30-second per-user cooldown. It uses its own cache file (`bot-cache.db`) so it
-never contends with a local Claude Code session.
+Send Messages, **Create Public Threads** and **Send Messages in Threads**
+permissions, and put the token in `.env`. It uses its own cache file
+(`bot-cache.db`) so it never contends with a local Claude Code session.
+
+### Conversations
+
+A question in a channel (`@SC Trade Intel qual o preço da laranita?`) is
+answered **in a new thread** opened on that message, so replying in the thread
+is the obvious next move. Every message in a thread the bot opened is a
+follow-up — no mention needed — and the whole thread (plus the message it
+started from) is replayed to the model as the message stack, so "e com a
+Caterpillar?" or "the second one" resolves against what was said before. DMs
+work the same way, using the DM's own history. Up to
+`BOT.maxContextTurns` turns are replayed (`src/config.ts`); the bot's transient
+notices (⏳ cooldown, ⚠️ errors) and other bots' messages are left out.
+
+Earlier turns reach the model as *text only* — the tool results behind them are
+gone — so the system prompt requires it to re-run the tools before repeating or
+building on any figure from an earlier turn. Hard rule 1 still holds: no number
+that did not come from a tool call in the current run.
+
+If thread creation fails (missing permission, or a channel that cannot hold
+threads) the bot falls back to replying in the channel, single-shot as before.
+
+The 30-second per-user cooldown guards new questions and DMs; follow-ups inside
+a thread the bot opened are exempt, so a conversation is never interrupted.
 
 ## Deploying the bot to a Raspberry Pi
 

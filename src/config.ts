@@ -45,6 +45,26 @@ export const TRAVEL_HEURISTICS = {
   quantumFuelFractionPer100Gm: 0.08,
 } as const;
 
+/**
+ * Discord bot behaviour. The bot answers each new question inside a thread it
+ * opens on the question itself, then rebuilds the conversation from that
+ * thread's messages, so these bound how much history is replayed to the model.
+ */
+export const BOT = {
+  /** Per-user throttle on new questions and DMs; thread follow-ups are exempt. */
+  cooldownMs: 30_000,
+  /** Discord's hard limit on a single message. */
+  messageCharLimit: 2_000,
+  /** Discord's hard limit on a thread name; we truncate below it. */
+  threadNameCharLimit: 100,
+  /** Discord auto-archive, in minutes (must be 60, 1440, 4320 or 10080). */
+  threadAutoArchiveMinutes: 1_440,
+  /** How many messages to pull back when rebuilding a conversation. */
+  historyFetchLimit: 60,
+  /** Hard cap on turns handed to the model; the newest are kept. */
+  maxContextTurns: 20,
+} as const;
+
 export function getDbPath(): string {
   return process.env['SC_TRADE_DB'] ?? 'cache.db';
 }

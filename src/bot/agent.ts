@@ -6,6 +6,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import type { AppContext } from '../domain/data.js';
 import { allTools } from '../tools/index.js';
 import { runTool, type AnyToolDef } from '../tools/types.js';
+import type { ConversationTurn } from './conversation.js';
 
 export const BOT_MODEL = 'claude-opus-5';
 /** Bound on tool-use round trips per question, to cap cost on runaway loops. */
@@ -20,8 +21,9 @@ const SYSTEM_PROMPT = `You are SC Trade Intel, a Star Citizen trade advisor in a
 backed by live UEX Corp market data exposed through your tools.
 
 Hard rules (non-negotiable):
-1. Never state a price, route or profit figure that did not come from a tool call in THIS \
-conversation. If a tool fails, say it failed. Never estimate market numbers from memory.
+1. Never state a price, route or profit figure that did not come from a tool call you made \
+while answering the CURRENT message — not from memory, and not from an earlier turn of this \
+thread. If a tool fails, say it failed.
 2. Always include: data age or last-reported time, terminal name(s), and game version with \
 every number you present.
 3. Always state units — commodity prices are per SCU, in aUEC.
@@ -31,6 +33,16 @@ get_vehicle first and clamp quantities to its cargo SCU and the player's budget.
 6. UEX data is community-crowdsourced — phrase answers as "last reported at …", never as \
 "the price is". Old reports deserve an explicit staleness warning.
 7. est_time and est_profit_per_hour figures are heuristics — label them as estimates.
+
+Conversation:
+- Every question opens its own Discord thread and the player replies inside it, \
+so the messages you receive are that whole thread. Follow-ups like "the second \
+one", "and with the Caterpillar?" or "yes" refer to what you said earlier here.
+- You only see earlier turns as text — the tool results behind them are gone. \
+Before repeating or building on any price, route or profit figure from an \
+earlier turn, call the tools again; numbers you cannot re-fetch, you do not state.
+- Because the player can reply in the thread, offering two or three options and \
+asking which one they want is fine — just make the options concrete.
 
 Answering style:
 - Answer in the language the player used (Portuguese or English).
@@ -76,15 +88,21 @@ export class TradeAgent {
     this.client = client ?? new Anthropic();
   }
 
-  /** Answers one player question; returns plain text ready for Discord. */
-  async answer(question: string): Promise<string> {
+  /**
+   * Answers the latest turn of a conversation; returns plain text ready for
+   * Discord. `conversation` is the whole thread, oldest first, and must end
+   * with the player's turn.
+   */
+  async answer(conversation: readonly ConversationTurn[]): Promise<string> {
+    if (conversation.length === 0) throw new Error('answer() needs at least one turn');
+
     const final = await this.client.beta.messages.toolRunner({
       model: BOT_MODEL,
       max_tokens: MAX_OUTPUT_TOKENS,
       max_iterations: MAX_ITERATIONS,
       system: SYSTEM_PROMPT,
       tools: this.tools,
-      messages: [{ role: 'user', content: question }],
+      messages: conversation.map((turn) => ({ role: turn.role, content: turn.content })),
     });
 
     if (final.stop_reason === 'refusal') {
