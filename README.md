@@ -92,12 +92,21 @@ never contends with a local Claude Code session.
 ./scripts/deploy-pi.sh pi@raspberrypi.local     # Git Bash on Windows
 ```
 
-The script builds the ARM image locally with buildx (the platform is
-auto-detected from the Pi's `uname -m` — override with `PLATFORM`), streams it
-straight to the Pi over ssh (`docker load`) and starts it with compose. The
-image never goes to a registry and the tokens never enter the image: the first
-run copies `.env.example` to `~/sc-trade-intel/.env` on the Pi and stops so you
-can fill in `UEX_API_TOKEN`, `ANTHROPIC_API_KEY` and `DISCORD_BOT_TOKEN` there.
+The image never goes to a registry and the tokens never enter it: the first run
+copies `.env.example` to `~/sc-trade-intel/.env` on the Pi and stops so you can
+fill in `UEX_API_TOKEN`, `ANTHROPIC_API_KEY` and `DISCORD_BOT_TOKEN` there. Then
+re-run — the build is cached and it goes straight to starting the bot.
+
+Two build modes, picked automatically (force with `BUILD=remote|local`):
+
+| Mode | What happens | When |
+| --- | --- | --- |
+| `remote` | the local docker CLI drives the Pi's engine over ssh (`DOCKER_HOST=ssh://…`) and the Pi builds its own image natively | default; no local docker engine needed, just the CLI |
+| `local` | buildx cross-builds under QEMU here and streams the image over ssh (`docker load`) | when a local engine is running; keeps the work off a small Pi |
+
+A Pi 4/5 builds this in a couple of minutes; on a Pi 3 prefer `BUILD=local`,
+where the platform is auto-detected from the Pi's `uname -m` (override with
+`PLATFORM`). Compose v2 and the old standalone v1 are both supported.
 
 Troubleshooting:
 
@@ -108,6 +117,10 @@ Troubleshooting:
   image is missing on the Pi, i.e. the deploy script never finished loading it.
   Re-run the script; don't run `docker compose up -d` on the Pi by hand before
   the first successful deploy.
+- **`DISCORD_BOT_TOKEN is not set` in a restart loop** — the `.env` on the Pi
+  has CRLF endings, so each value ends in a carriage return. The script strips
+  them when it copies the file; if you edited `.env` from Windows, run
+  `sed -i 's/\r$//' ~/sc-trade-intel/.env` on the Pi.
 
 ## Development
 
