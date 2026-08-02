@@ -86,6 +86,29 @@ mentioned (`@SC Trade Intel qual o preço da laranita?`) or in DMs, with a
 30-second per-user cooldown. It uses its own cache file (`bot-cache.db`) so it
 never contends with a local Claude Code session.
 
+## Deploying the bot to a Raspberry Pi
+
+```bash
+./scripts/deploy-pi.sh pi@raspberrypi.local     # Git Bash on Windows
+```
+
+The script builds the ARM image locally with buildx (the platform is
+auto-detected from the Pi's `uname -m` — override with `PLATFORM`), streams it
+straight to the Pi over ssh (`docker load`) and starts it with compose. The
+image never goes to a registry and the tokens never enter the image: the first
+run copies `.env.example` to `~/sc-trade-intel/.env` on the Pi and stops so you
+can fill in `UEX_API_TOKEN`, `ANTHROPIC_API_KEY` and `DISCORD_BOT_TOKEN` there.
+
+Troubleshooting:
+
+- **`set PI_HOST, e.g. …`** — pass the ssh destination as the first argument.
+  PowerShell has no `VAR=value command` prefix, so `PI_HOST=… ./deploy-pi.sh`
+  only works in bash.
+- **`pull access denied for sc-trade-intel-bot`** — compose only pulls when the
+  image is missing on the Pi, i.e. the deploy script never finished loading it.
+  Re-run the script; don't run `docker compose up -d` on the Pi by hand before
+  the first successful deploy.
+
 ## Development
 
 ```bash

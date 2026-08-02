@@ -4,6 +4,8 @@
 services:
   bot:
     image: sc-trade-intel-bot:latest
+    # the image is built locally and loaded over ssh — it is not on any registry
+    pull_policy: never
     restart: unless-stopped
     init: true
     env_file: .env
