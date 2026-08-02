@@ -91,6 +91,20 @@ describe('where_to_buy / where_to_sell', () => {
     expect(prices).toEqual([...prices].sort((a, b) => a - b));
   });
 
+  it('flags whether each terminal auto-loads, so a big buy can be judged', async () => {
+    const ctx = makeTestContext();
+    const result = await runTool(whereToBuyTool, ctx, { commodity: 'Laranite' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const data = result.data as { terminals: Array<{ terminal: string; auto_load: boolean }> };
+    // The cheapest terminal is a mining outpost: elevator, but no auto-load.
+    expect(data.terminals[0]).toMatchObject({
+      terminal: 'ArcCorp Mining Area 056',
+      auto_load: false,
+    });
+    expect(result.meta.notes.join(' ')).toContain('auto_load');
+  });
+
   it('sorts sell locations by highest price and respects max_results', async () => {
     const ctx = makeTestContext();
     const result = await runTool(whereToSellTool, ctx, { commodity: 'laranita', max_results: 5 });

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { LOADING_HEURISTICS, TRAVEL_HEURISTICS } from '../src/config.js';
-import { computeRouteEconomics, isAssistedStop, stopMinutes } from '../src/domain/routes.js';
+import { TRAVEL_HEURISTICS } from '../src/config.js';
+import {
+  computeRouteEconomics,
+  routeAutoLoad,
+  terminalAutoLoads,
+} from '../src/domain/routes.js';
 import {
   distanceBetweenTool,
   findBestRoutesTool,
@@ -8,7 +12,7 @@ import {
   getVehicleTool,
 } from '../src/tools/routes.js';
 import { runTool } from '../src/tools/types.js';
-import type { CommodityRoute } from '../src/uex/types.js';
+import type { CommodityRoute, Terminal } from '../src/uex/types.js';
 import { makeTestContext } from './helpers/fake-context.js';
 
 const SAMPLE_ROUTE = {
@@ -44,48 +48,22 @@ describe('computeRouteEconomics', () => {
     expect(econ?.limiting_factor).toBe('reported_supply');
   });
 
-  it('estimates time and profit/hour from the documented heuristics', () => {
+  it('estimates flying and docking time only, never loading', () => {
     const econ = computeRouteEconomics(SAMPLE_ROUTE, 100, 10_000_000);
     if (!econ) throw new Error('expected economics');
-    // No terminal flags on the sample route, so both stops are manual:
-    // 69 Gm / 10 Gm-per-min + 2 * (15 min + 100 SCU * 0.4 min) = 116.9 min
-    const expected = 6.9 + 2 * (15 + 100 * LOADING_HEURISTICS.manualMinutesPerScu);
+    // 69 Gm / 10 Gm-per-min + 2 * 15 min docking = 36.9 min. Cargo handling is
+    // deliberately not modelled — the tools report auto_load instead.
+    const expected = 6.9 + 2 * TRAVEL_HEURISTICS.stopOverheadMinutes;
     expect(econ.est_time_minutes).toBeCloseTo(expected, 1);
-    expect(econ.est_load_minutes).toBeCloseTo(55, 1);
-    expect(econ.est_unload_minutes).toBeCloseTo(55, 1);
     expect(econ.est_profit_per_hour_uec).toBeCloseTo((100 * 1800) / (expected / 60), 0);
     expect(econ.profit_per_gm_uec).toBeCloseTo((100 * 1800) / 69, 1);
     expect(econ.uex_score).toBe(100);
   });
 
-  it('charges cargo handling per SCU, so a big hold costs more than a small one', () => {
+  it('does not vary the time estimate with the size of the load', () => {
     const small = computeRouteEconomics(SAMPLE_ROUTE, 10, 10_000_000);
     const big = computeRouteEconomics(SAMPLE_ROUTE, 400, 10_000_000);
-    if (!small || !big) throw new Error('expected economics');
-    // The old flat model gave both the same 36.9 min and made profit/hour scale
-    // with hold size; handling time now grows with the load.
-    expect(big.est_time_minutes).toBeGreaterThan(small.est_time_minutes * 4);
-  });
-
-  it('treats a freight elevator or cargo centre as assisted loading', () => {
-    const assisted = computeRouteEconomics(
-      { ...SAMPLE_ROUTE, has_freight_elevator_origin: 1, has_cargo_center_destination: 1 },
-      400,
-      10_000_000,
-    );
-    const manual = computeRouteEconomics(SAMPLE_ROUTE, 400, 10_000_000);
-    if (!assisted || !manual) throw new Error('expected economics');
-    expect(assisted.cargo_handling_origin).toBe('assisted');
-    expect(assisted.cargo_handling_destination).toBe('assisted');
-    expect(manual.cargo_handling_origin).toBe('manual');
-    expect(assisted.est_load_minutes).toBeLessThan(manual.est_load_minutes);
-    expect(assisted.est_profit_per_hour_uec).toBeGreaterThan(manual.est_profit_per_hour_uec);
-  });
-
-  it('falls back to manual when the terminal flags are missing', () => {
-    const econ = computeRouteEconomics(SAMPLE_ROUTE, 50, 10_000_000);
-    expect(econ?.cargo_handling_origin).toBe('manual');
-    expect(econ?.cargo_handling_destination).toBe('manual');
+    expect(small?.est_time_minutes).toBe(big?.est_time_minutes);
   });
 
   it('returns null for unprofitable or unpriced routes', () => {
@@ -133,6 +111,7 @@ describe('find_best_routes', () => {
       origin: 'ArcCorp Mining Area 045',
       capacity_scu: 100,
       budget_uec: 1_000_000,
+      auto_load: false,
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -140,6 +119,63 @@ describe('find_best_routes', () => {
     for (const route of data.routes) {
       expect(route.buy.terminal).toContain('ArcCorp Mining Area 045');
     }
+  });
+
+  it('joins each stop back to its terminal for the auto-load flag', async () => {
+    const ctx = makeTestContext();
+    const result = await runTool(findBestRoutesTool, ctx, {
+      commodity: 'Laranite',
+      origin: 'ArcCorp Mining Area 056',
+      capacity_scu: 100,
+      budget_uec: 1_000_000,
+      auto_load: false,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const data = result.data as {
+      routes: Array<{
+        buy: { auto_load: boolean };
+        sell: { terminal: string; auto_load: boolean };
+      }>;
+    };
+    const route = data.routes.find((r) => r.sell.terminal.includes('Area 18'));
+    if (!route) throw new Error('expected the Area 056 → Area 18 route');
+    // The mining outpost has a freight elevator but is NOT auto-load: the exact
+    // case that made the elevator a bad proxy.
+    expect(route.buy.auto_load).toBe(false);
+    expect(route.sell.auto_load).toBe(true);
+    expect(result.meta.notes.join(' ')).toContain('auto_load');
+  });
+
+  it('returns only routes that auto-load at both ends by default', async () => {
+    const ctx = makeTestContext();
+    const result = await runTool(findBestRoutesTool, ctx, {
+      commodity: 'Laranite',
+      capacity_scu: 100,
+      budget_uec: 1_000_000,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const data = result.data as {
+      routes: Array<{ buy: { auto_load: boolean }; sell: { auto_load: boolean } }>;
+    };
+    expect(data.routes.length).toBeGreaterThan(0);
+    for (const route of data.routes) {
+      expect(route.buy.auto_load).toBe(true);
+      expect(route.sell.auto_load).toBe(true);
+    }
+  });
+
+  it('says how to widen the search when auto-load leaves nothing', async () => {
+    const ctx = makeTestContext();
+    const result = await runTool(findBestRoutesTool, ctx, {
+      commodity: 'Laranite',
+      origin: 'ArcCorp Mining Area 056',
+      capacity_scu: 100,
+      budget_uec: 1_000_000,
+    });
+    expect(result).toMatchObject({ ok: false, error: { code: 'NO_DATA' } });
+    if (!result.ok) expect(result.error.message).toContain('auto_load=false');
   });
 
   it('refuses illegal commodities unless legal_only is disabled', async () => {
@@ -209,19 +245,27 @@ describe('get_vehicle', () => {
   });
 });
 
-describe('loading heuristics', () => {
-  it('reads a freight elevator or cargo centre as assisted, anything else as manual', () => {
-    expect(isAssistedStop(1, 0)).toBe('assisted');
-    expect(isAssistedStop(0, 1)).toBe('assisted');
-    expect(isAssistedStop(0, 0)).toBe('manual');
+describe('auto-load reporting', () => {
+  const terminal = (id: number, autoLoad: number, freightElevator = 0): Terminal =>
+    ({
+      id,
+      is_auto_load: autoLoad,
+      has_freight_elevator: freightElevator,
+    }) as Terminal;
+
+  it('reads is_auto_load, not the freight elevator', () => {
+    expect(terminalAutoLoads(terminal(1, 1))).toBe(true);
+    expect(terminalAutoLoads(terminal(2, 0))).toBe(false);
+    // 96 of 509 Stanton terminals look like this — an elevator but no auto-load.
+    expect(terminalAutoLoads(terminal(3, 0, 1))).toBe(false);
   });
 
-  it('adds per-SCU handling on top of the fixed docking overhead', () => {
-    expect(stopMinutes(0, 'manual')).toBe(TRAVEL_HEURISTICS.stopOverheadMinutes);
-    expect(stopMinutes(100, 'manual')).toBeCloseTo(
-      TRAVEL_HEURISTICS.stopOverheadMinutes + 100 * LOADING_HEURISTICS.manualMinutesPerScu,
-      5,
+  it('reports false for a terminal missing from the cache rather than guessing', () => {
+    expect(terminalAutoLoads(undefined)).toBe(false);
+    const autoLoad = routeAutoLoad(
+      { ...SAMPLE_ROUTE, id_terminal_origin: 1, id_terminal_destination: 99 },
+      new Map([[1, terminal(1, 1)]]),
     );
-    expect(stopMinutes(100, 'assisted')).toBeLessThan(stopMinutes(100, 'manual'));
+    expect(autoLoad).toEqual({ origin: true, destination: false });
   });
 });

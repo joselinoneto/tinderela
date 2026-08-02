@@ -4,6 +4,7 @@ import {
   getCommodityPrices,
   getPriceHistory,
   getPricesAll,
+  getTerminals,
 } from '../domain/data.js';
 import { resolveEntity } from '../domain/resolve.js';
 import {
@@ -138,6 +139,15 @@ function makeWhereTool(side: 'buy' | 'sell') {
         side === 'buy' ? a.price_buy - b.price_buy : b.price_sell - a.price_sell,
       );
       const top = rows.slice(0, input.max_results);
+      // Auto-load lives on the terminal record, not on the price row.
+      const autoLoadById = new Map(
+        (await getTerminals(ctx)).data.map((t) => [t.id, t.is_auto_load === 1]),
+      );
+      if (top.some((r) => autoLoadById.get(r.id_terminal) !== true)) {
+        notes.push(
+          'auto_load false means UEX does not report auto-load there — a big load is moved box by box; weigh that against the price',
+        );
+      }
 
       return ok(
         {
@@ -157,6 +167,8 @@ function makeWhereTool(side: 'buy' | 'sell') {
             price_avg: side === 'buy' ? r.price_buy_avg : r.price_sell_avg,
             scu: side === 'buy' ? r.scu_buy : r.scu_sell,
             scu_meaning: side === 'buy' ? 'reported stock available' : 'reported demand capacity',
+            auto_load: autoLoadById.get(r.id_terminal) === true,
+            container_sizes: r.container_sizes,
             game_version: r.game_version,
             last_reported_at: isoFromEpoch(r.date_modified),
           })),

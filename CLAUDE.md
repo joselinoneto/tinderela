@@ -22,6 +22,9 @@ Users ask in Portuguese or English; answer in the language of the question.
 
 - Route/run requests → delegate to the `route-planner` subagent (three options
   ranked by estimated profit/hour). Mining/refining → `mining-advisor`.
+- Route searches default to `auto_load=true` (only terminals that load the ship
+  for the player). Ask before widening to `auto_load=false`, and always say
+  which setting produced the answer.
   Trend/"sell now or wait" → `market-analyst`.
 - Before delivering any final answer containing prices, routes or profits, run
   the `data-validator` subagent on the draft and apply its report.
@@ -37,8 +40,10 @@ Users ask in Portuguese or English; answer in the language of the question.
   numbers inline.
 - Small commits, conventional commit messages (`feat:`, `fix:`, `test:`, ...).
 - Never commit `.env` or the UEX token.
-- Travel-time, cargo-handling and fuel figures are heuristics — label them as
-  estimates in tool output; only prices, distances and the terminal/ship
-  capability flags come from UEX directly.
-- Loading time scales with the load: keep `est_time_minutes` a function of SCU
-  and of whether the terminal assists, never a flat per-stop constant.
+- Travel-time and fuel figures are heuristics — label them as estimates in tool
+  output; only prices, distances and the terminal/ship capability flags come
+  from UEX directly.
+- Cargo handling is reported, never estimated: surface each terminal's
+  `auto_load` (UEX `is_auto_load`, joined from the terminal record — route rows
+  do not carry it) and let the player decide. Do not add a per-SCU loading-time
+  model; `est_time_minutes` covers flying and docking only.

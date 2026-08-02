@@ -57,6 +57,8 @@ export interface Terminal {
   is_available_live: number;
   is_refinery: number;
   is_cargo_center: number;
+  /** Terminal loads/unloads the ship for you — the auto-load flag UEX shows. */
+  is_auto_load: number;
   is_refuel: number;
   has_loading_dock: number;
   has_docking_port: number;
@@ -178,7 +180,11 @@ export interface CommodityRoute {
   game_version_destination: string;
   has_docking_port_origin: number;
   has_docking_port_destination: number;
-  /** Cargo-handling flags: drive the assisted/manual loading estimate. */
+  /**
+   * Terminal capability flags. Note the route endpoint has NO auto-load flag —
+   * `is_auto_load` lives on the terminal record, so the loading estimate joins
+   * these ids back to the terminals cache instead of trusting the elevator.
+   */
   has_freight_elevator_origin: number;
   has_freight_elevator_destination: number;
   has_cargo_center_origin: number;

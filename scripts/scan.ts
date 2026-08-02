@@ -17,11 +17,17 @@ import {
   getCommodities,
   getCommodityRoutes,
   getGameVersions,
+  getTerminals,
   type AppContext,
 } from '../src/domain/data.js';
 import { resolveEntity, resolveOne } from '../src/domain/resolve.js';
-import { computeRouteEconomics, TIME_MODEL_NOTE, type RouteEconomics } from '../src/domain/routes.js';
-import type { CommodityRoute } from '../src/uex/types.js';
+import {
+  computeRouteEconomics,
+  routeAutoLoad,
+  TIME_MODEL_NOTE,
+  type RouteEconomics,
+} from '../src/domain/routes.js';
+import type { CommodityRoute, Terminal } from '../src/uex/types.js';
 
 const SORT_KEYS = {
   hour: 'est_profit_per_hour_uec',
@@ -36,6 +42,7 @@ interface ScanRow extends RouteEconomics {
   commodity: string;
   illegal: boolean;
   outdated: boolean;
+  handLoad: boolean;
   buyAt: string;
   sellAt: string;
   reportedDaysAgo: number;
@@ -45,7 +52,8 @@ function usageAndExit(message?: string): never {
   if (message) console.error(`error: ${message}\n`);
   console.error(
     'usage: npm run scan -- --ship <name> --budget <aUEC> [--top N] [--sort hour|profit|roi|scu|gm]\n' +
-      '                       [--from <location>] [--to <location>] [--illegal] [--max-commodities N]',
+      '                       [--from <location>] [--to <location>] [--illegal] [--max-commodities N]\n' +
+      '                       [--allow-manual]  include terminals that do not auto-load (you haul it)',
   );
   process.exit(1);
 }
@@ -70,6 +78,7 @@ async function main(): Promise<void> {
       from: { type: 'string' },
       to: { type: 'string' },
       illegal: { type: 'boolean', default: false },
+      'allow-manual': { type: 'boolean', default: false },
       'max-commodities': { type: 'string', default: '60' },
     },
   });
@@ -95,8 +104,14 @@ async function main(): Promise<void> {
   const fromIds = values.from ? await locationTerminalIds(ctx, values.from) : null;
   const toIds = values.to ? await locationTerminalIds(ctx, values.to) : null;
 
-  const [commodities, versions] = await Promise.all([getCommodities(ctx), getGameVersions(ctx)]);
+  const [commodities, versions, terminals] = await Promise.all([
+    getCommodities(ctx),
+    getGameVersions(ctx),
+    getTerminals(ctx),
+  ]);
   const live = versions.data.live;
+  // Auto-load is a terminal property; route rows do not carry it.
+  const terminalsById = new Map<number, Terminal>(terminals.data.map((t) => [t.id, t]));
   const candidates = commodities.data
     .filter(
       (c) =>
@@ -131,6 +146,9 @@ async function main(): Promise<void> {
     .filter((r) => !fromIds || fromIds.has(r.id_terminal_origin))
     .filter((r) => !toIds || toIds.has(r.id_terminal_destination))
     .flatMap((r) => {
+      const autoLoad = routeAutoLoad(r, terminalsById);
+      const handLoad = !autoLoad.origin || !autoLoad.destination;
+      if (handLoad && !values['allow-manual']) return [];
       const econ = computeRouteEconomics(r, capacity, budget);
       if (!econ) return [];
       const flags = flagById.get(r.id_commodity);
@@ -139,6 +157,7 @@ async function main(): Promise<void> {
           ...econ,
           commodity: r.commodity_name,
           illegal: flags ? flags.is_illegal === 1 : false,
+          handLoad,
           outdated: r.game_version_origin !== live || r.game_version_destination !== live,
           buyAt: `${r.origin_terminal_name} [${r.origin_star_system_name ?? '?'}]`,
           sellAt: `${r.destination_terminal_name} [${r.destination_star_system_name ?? '?'}]`,
@@ -180,13 +199,7 @@ async function main(): Promise<void> {
   console.log('-'.repeat(header.length));
 
   rows.forEach((r, i) => {
-    const handLoaded =
-      r.cargo_handling_origin === 'manual' || r.cargo_handling_destination === 'manual';
-    const marks = [
-      r.illegal ? '⚠ILLEGAL' : '',
-      r.outdated ? '!old-gv' : '',
-      handLoaded ? `hand-load ${Math.round(r.est_load_minutes + r.est_unload_minutes)}min` : '',
-    ]
+    const marks = [r.illegal ? '⚠ILLEGAL' : '', r.outdated ? '!old-gv' : '', r.handLoad ? '✋hand-load' : '']
       .filter(Boolean)
       .join(' ');
     console.log(

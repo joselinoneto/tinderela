@@ -1,27 +1,36 @@
-import { LOADING_HEURISTICS, TRAVEL_HEURISTICS } from '../config.js';
-import type { CommodityRoute } from '../uex/types.js';
+import { TRAVEL_HEURISTICS } from '../config.js';
+import type { CommodityRoute, Terminal } from '../uex/types.js';
 
 export type LimitingFactor = 'ship_capacity' | 'budget' | 'reported_supply';
 
-/** How the cargo moves between hold and terminal at one stop. */
-export type CargoHandling = 'assisted' | 'manual';
-
-/**
- * A stop is `assisted` when UEX reports a freight elevator or cargo centre at
- * the terminal — the station moves the boxes. Anything else (or missing data,
- * e.g. an older cached row) is treated as `manual`, the pessimistic case.
- */
-export function isAssistedStop(hasFreightElevator: number, hasCargoCenter: number): CargoHandling {
-  return hasFreightElevator === 1 || hasCargoCenter === 1 ? 'assisted' : 'manual';
+/** Whether each end of a route loads the ship for the player. */
+export interface RouteAutoLoad {
+  origin: boolean;
+  destination: boolean;
 }
 
-/** Minutes at one stop: fixed docking overhead plus per-SCU cargo handling. */
-export function stopMinutes(scu: number, handling: CargoHandling): number {
-  const perScu =
-    handling === 'assisted'
-      ? LOADING_HEURISTICS.assistedMinutesPerScu
-      : LOADING_HEURISTICS.manualMinutesPerScu;
-  return TRAVEL_HEURISTICS.stopOverheadMinutes + scu * perScu;
+/**
+ * Whether the terminal loads/unloads the ship for you, straight from UEX's
+ * `is_auto_load` — the same flag its site shows. A freight elevator is NOT a
+ * substitute: in Stanton, 96 of 509 terminals have one without auto-load. An
+ * unknown terminal (not in the cache) reports false rather than guessing.
+ */
+export function terminalAutoLoads(terminal: Terminal | undefined): boolean {
+  return terminal?.is_auto_load === 1;
+}
+
+/**
+ * Resolves both stops of a route against the terminal cache. Route rows carry
+ * no auto-load flag of their own, so this join is the only way to get it.
+ */
+export function routeAutoLoad(
+  route: CommodityRoute,
+  terminalsById: ReadonlyMap<number, Terminal>,
+): RouteAutoLoad {
+  return {
+    origin: terminalAutoLoads(terminalsById.get(route.id_terminal_origin)),
+    destination: terminalAutoLoads(terminalsById.get(route.id_terminal_destination)),
+  };
 }
 
 export interface RouteEconomics {
@@ -35,14 +44,7 @@ export interface RouteEconomics {
   roi_percent: number;
   distance_gm: number;
   profit_per_gm_uec: number | null;
-  /** How the cargo moves at each stop, from UEX terminal flags. */
-  cargo_handling_origin: CargoHandling;
-  cargo_handling_destination: CargoHandling;
-  /** ESTIMATE: docking plus per-SCU handling at the buy terminal. */
-  est_load_minutes: number;
-  /** ESTIMATE: docking plus per-SCU handling at the sell terminal. */
-  est_unload_minutes: number;
-  /** ESTIMATE from documented heuristics, not UEX data. */
+  /** ESTIMATE from documented heuristics, not UEX data. Excludes loading. */
   est_time_minutes: number;
   /** ESTIMATE from documented heuristics, not UEX data. */
   est_profit_per_hour_uec: number;
@@ -55,9 +57,9 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 /**
  * Re-scales a UEX route (which assumes the full reported supply) to what the
  * player can actually move: ship capacity, budget and reported supply.
- * Travel time is quantum cruise plus, at each stop, docking overhead and
- * per-SCU cargo handling that depends on whether the terminal assists — see
- * TRAVEL_HEURISTICS and LOADING_HEURISTICS. Callers must label every
+ * Travel time is quantum cruise plus fixed docking overhead — see
+ * TRAVEL_HEURISTICS. It does NOT include cargo handling: callers must report
+ * the terminals' auto-load conditions (see `routeAutoLoad`) and label every
  * time-derived figure an estimate.
  */
 export function computeRouteEconomics(
@@ -82,20 +84,8 @@ export function computeRouteEconomics(
   if (profit <= 0) return null;
 
   const distance = Number(route.distance) || 0;
-  // Handling scales with the load, so a full Caterpillar no longer costs the
-  // same 30 minutes of overhead as a 2 SCU hop.
-  const handlingOrigin = isAssistedStop(
-    route.has_freight_elevator_origin,
-    route.has_cargo_center_origin,
-  );
-  const handlingDestination = isAssistedStop(
-    route.has_freight_elevator_destination,
-    route.has_cargo_center_destination,
-  );
-  const loadMinutes = stopMinutes(scuLoaded, handlingOrigin);
-  const unloadMinutes = stopMinutes(scuLoaded, handlingDestination);
   const travelMinutes =
-    distance / TRAVEL_HEURISTICS.quantumGmPerMinute + loadMinutes + unloadMinutes;
+    distance / TRAVEL_HEURISTICS.quantumGmPerMinute + 2 * TRAVEL_HEURISTICS.stopOverheadMinutes;
 
   return {
     scu_loaded: scuLoaded,
@@ -107,10 +97,6 @@ export function computeRouteEconomics(
     roi_percent: round2((profit / investment) * 100),
     distance_gm: distance,
     profit_per_gm_uec: distance > 0 ? round2(profit / distance) : null,
-    cargo_handling_origin: handlingOrigin,
-    cargo_handling_destination: handlingDestination,
-    est_load_minutes: round2(loadMinutes),
-    est_unload_minutes: round2(unloadMinutes),
     est_time_minutes: round2(travelMinutes),
     est_profit_per_hour_uec: round2(profit / (travelMinutes / 60)),
     uex_score: route.score,
@@ -119,9 +105,7 @@ export function computeRouteEconomics(
 
 export const TIME_MODEL_NOTE =
   `est_time/est_profit_per_hour are heuristics: quantum cruise at ` +
-  `${TRAVEL_HEURISTICS.quantumGmPerMinute} Gm/min, plus ` +
-  `${TRAVEL_HEURISTICS.stopOverheadMinutes} min docking overhead per stop (2 stops) and ` +
-  `per-SCU cargo handling — ${LOADING_HEURISTICS.assistedMinutesPerScu} min/SCU where the ` +
-  `terminal has a freight elevator or cargo centre, ${LOADING_HEURISTICS.manualMinutesPerScu} ` +
-  `min/SCU where the load is moved by tractor beam. The per-SCU rates are UNVERIFIED ` +
-  `placeholders (src/config.ts); actual times vary by ship, terminal and route.`;
+  `${TRAVEL_HEURISTICS.quantumGmPerMinute} Gm/min plus ` +
+  `${TRAVEL_HEURISTICS.stopOverheadMinutes} min docking overhead per stop (2 stops). ` +
+  `They do NOT include cargo handling — check auto_load at both terminals: where it is ` +
+  `false the player moves every box by tractor beam, which can dominate the run.`;

@@ -45,23 +45,29 @@ All tools return structured JSON with a `meta` block (data age in seconds,
 `fetched_at` timestamp, game version, source terminal names). Errors are
 explicit objects, never silent fallbacks.
 
-### Cargo handling (why a full hold is not free)
+### Cargo handling (auto-load)
 
-Every route stop is scored as `assisted` (UEX reports a freight elevator or
-cargo centre at that terminal — the station moves the boxes) or `manual` (it
-goes by tractor beam). `est_time_minutes` is then quantum cruise plus, at each
-stop, a fixed docking overhead **and per-SCU handling** — so a 576 SCU
-Caterpillar run no longer costs the same 30 minutes as a 2 SCU hop, and
-`est_profit_per_hour_uec` stops scaling with hold size. `find_best_routes`
-reports `cargo_handling_origin`/`_destination`, `est_load_minutes` and
-`est_unload_minutes` per route; `get_vehicle` reports `has_loading_dock` and
-`has_tractor_beam`.
+Whether a terminal loads the ship for you is a real UEX field, `is_auto_load` —
+the same flag shown on its site. It lives on the **terminal** record, not on
+route rows, so the tools join each stop's terminal id back to the cached
+terminals list. A freight elevator is **not** the same thing: in Stanton 96 of
+509 terminals have an elevator without auto-load (most mining outposts), and 6
+auto-load without one.
 
-> ⚠️ The per-SCU rates in `LOADING_HEURISTICS` (`src/config.ts`) are
-> **unverified placeholders** — 0.05 min/SCU assisted, 0.4 min/SCU manual. Time
-> a couple of real runs (wall clock ÷ SCU) and replace them. Every figure
-> derived from them is labelled an estimate in tool output, and the note is
-> carried into the answer.
+The tools **report the condition and never estimate handling time** — how long
+a load takes depends on the terminal, container sizes and how you haul, so the
+player decides:
+
+- `find_best_routes` takes **`auto_load` (default `true`)**: only routes where
+  both terminals load the ship for you. Pass `auto_load=false` when you are
+  willing to move boxes with a tractor beam — it opens up many more terminals.
+  Each route reports `auto_load` per side; when the filter empties the result
+  the error says to retry with `auto_load=false`.
+- `where_to_buy` / `where_to_sell` report `auto_load` and `container_sizes` per
+  terminal.
+- `get_vehicle` reports `has_loading_dock` and `has_tractor_beam`.
+- `est_time_minutes` / `est_profit_per_hour_uec` cover **flying and docking
+  only** — `TIME_MODEL_NOTE` says so in every route answer.
 
 ## Caching
 
@@ -79,13 +85,16 @@ the top table — pure TypeScript, zero tokens, ~6 s cold / ~0.1 s while the
 npm run scan -- --ship C2 --budget 800000
 npm run scan -- --ship Caterpillar --budget 2500000 --top 15 --sort profit
 npm run scan -- --ship C2 --budget 800000 --from "Area 18" --illegal
+npm run scan -- --ship Caterpillar --budget 2500000 --allow-manual
 ```
 
 Sort keys: `hour` (est. profit/hour, default) | `profit` | `roi` | `scu` | `gm`.
-Rows are flagged `⚠ILLEGAL`, `!old-gv` (report from an older game version) and
-`hand-load <n>min` (no freight elevator at one end — that is how much of `~MIN`
-is you and a tractor beam). Time and profit/hour columns are heuristics
-(constants in `src/config.ts`); see [Cargo handling](#cargo-handling-why-a-full-hold-is-not-free).
+By default the scan only shows routes that auto-load at both ends; add
+`--allow-manual` to include terminals you must haul yourself (those rows are
+flagged `hand-load`). Rows are also flagged `⚠ILLEGAL` and `!old-gv` (report
+from an older game version). Time and profit/hour columns are heuristics
+covering flying and docking only (constants in `src/config.ts`) — see
+[Cargo handling](#cargo-handling-auto-load).
 
 ## Discord bot
 

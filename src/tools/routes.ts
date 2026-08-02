@@ -7,12 +7,13 @@ import {
   getGameVersions,
   getPricesAll,
   getTerminalDistance,
+  getTerminals,
   getVehicles,
   type AppContext,
 } from '../domain/data.js';
 import { resolveEntity } from '../domain/resolve.js';
-import { computeRouteEconomics, TIME_MODEL_NOTE } from '../domain/routes.js';
-import type { CommodityRoute } from '../uex/types.js';
+import { computeRouteEconomics, routeAutoLoad, TIME_MODEL_NOTE } from '../domain/routes.js';
+import type { CommodityRoute, Terminal } from '../uex/types.js';
 import { isoFromEpoch, requireEntity } from './helpers.js';
 import { defineTool, fail, metaFromCache, ok } from './types.js';
 
@@ -34,7 +35,7 @@ async function resolveTerminalIds(
 export const findBestRoutesTool = defineTool({
   name: 'find_best_routes',
   description:
-    'Best trade routes for a ship and budget: profit total/per SCU, ROI, investment, distance, plus estimated time and profit/hour (labeled heuristics). Optionally pinned to an origin, destination or commodity.',
+    'Best trade routes for a ship and budget: profit total/per SCU, ROI, investment, distance, plus estimated time and profit/hour (labeled heuristics covering flight and docking only, NOT loading). Reports each terminal\'s auto_load condition and defaults to auto-load-only routes. Optionally pinned to an origin, destination or commodity.',
   inputSchema: {
     origin: z.string().min(1).optional().describe('Buy-side terminal or location name'),
     destination: z.string().min(1).optional().describe('Sell-side terminal or location name'),
@@ -42,6 +43,12 @@ export const findBestRoutesTool = defineTool({
     capacity_scu: z.number().int().min(1).describe('Ship cargo capacity in SCU'),
     budget_uec: z.number().min(1).describe('Available aUEC for buying cargo'),
     legal_only: z.boolean().default(true).describe('Exclude illegal commodities'),
+    auto_load: z
+      .boolean()
+      .default(true)
+      .describe(
+        'Only routes where BOTH terminals load the ship for the player (UEX is_auto_load). Defaults to true — pass false when the player says they will hand-load with a tractor beam, which opens up more terminals.',
+      ),
     max_results: z.number().int().min(1).max(20).default(5),
   },
   handler: async (ctx, input) => {
@@ -95,6 +102,10 @@ export const findBestRoutesTool = defineTool({
     }
 
     const live = await getGameVersions(ctx);
+    // Route rows carry no auto-load flag, so each stop is joined back to its
+    // terminal record.
+    const terminalsCache = await getTerminals(ctx);
+    const terminalsById = new Map<number, Terminal>(terminalsCache.data.map((t) => [t.id, t]));
     let oldestFetch: { fetchedAt: number; ageSeconds: number; stale: boolean } | null = null;
     const failedCommodities: string[] = [];
     const routeSets = await Promise.all(
@@ -122,6 +133,10 @@ export const findBestRoutesTool = defineTool({
         return !input.legal_only || !c || c.is_illegal === 0;
       })
       .flatMap((r) => {
+        const autoLoad = routeAutoLoad(r, terminalsById);
+        // The player asked for terminals that load for them; a hand-load at
+        // either end disqualifies the route.
+        if (input.auto_load && !(autoLoad.origin && autoLoad.destination)) return [];
         const econ = computeRouteEconomics(r, input.capacity_scu, input.budget_uec);
         if (!econ) return [];
         const c = byId.get(r.id_commodity);
@@ -136,8 +151,7 @@ export const findBestRoutesTool = defineTool({
               star_system: r.origin_star_system_name,
               price_per_scu: r.price_origin,
               reported_supply_scu: r.scu_origin,
-              has_freight_elevator: r.has_freight_elevator_origin === 1,
-              is_cargo_center: r.has_cargo_center_origin === 1,
+              auto_load: autoLoad.origin,
               container_sizes_scu: r.container_sizes_origin,
               game_version: r.game_version_origin,
             },
@@ -147,8 +161,7 @@ export const findBestRoutesTool = defineTool({
               star_system: r.destination_star_system_name,
               price_per_scu: r.price_destination,
               reported_demand_scu: r.scu_destination,
-              has_freight_elevator: r.has_freight_elevator_destination === 1,
-              is_cargo_center: r.has_cargo_center_destination === 1,
+              auto_load: autoLoad.destination,
               container_sizes_scu: r.container_sizes_destination,
               game_version: r.game_version_destination,
             },
@@ -163,24 +176,28 @@ export const findBestRoutesTool = defineTool({
       .slice(0, input.max_results);
 
     if (results.length === 0) {
-      return fail('NO_DATA', 'no profitable route found under these constraints', {
-        origin: input.origin ?? null,
-        destination: input.destination ?? null,
-        commodity: input.commodity ?? null,
-      });
+      return fail(
+        'NO_DATA',
+        input.auto_load
+          ? 'no profitable route found where both terminals auto-load; retry with auto_load=false if the player is willing to hand-load'
+          : 'no profitable route found under these constraints',
+        {
+          origin: input.origin ?? null,
+          destination: input.destination ?? null,
+          commodity: input.commodity ?? null,
+          auto_load: input.auto_load,
+        },
+      );
     }
 
     notes.push(
       'sorted by profit_total_uec; est_profit_per_hour_uec, profit_per_gm_uec, roi_percent and uex_score are included for alternative rankings',
     );
-    const manualStops = results.filter(
-      (r) => r.cargo_handling_origin === 'manual' || r.cargo_handling_destination === 'manual',
+    notes.push(
+      input.auto_load
+        ? 'auto_load=true: only routes where both terminals load the ship for the player. Pass auto_load=false to also see terminals the player must hand-load.'
+        : 'auto_load=false: results include terminals with auto_load false — there the player moves every box by tractor beam. Say so per route; est_time does not include it.',
     );
-    if (manualStops.length > 0) {
-      notes.push(
-        'cargo_handling "manual" means UEX reports no freight elevator or cargo centre at that terminal — the load moves by tractor beam, which est_load_minutes/est_unload_minutes account for. Tell the player when a big load is hand-hauled.',
-      );
-    }
     return ok(
       {
         unit: 'aUEC per SCU; distances in Gm',
@@ -318,7 +335,7 @@ export const getVehicleTool = defineTool({
     if (vehicle.scu === 0) notes.push('no cargo capacity reported; do not plan cargo runs with this vehicle');
     if (vehicle.scu > 0 && vehicle.is_loading_dock === 0) {
       notes.push(
-        'no loading dock: at terminals without a freight elevator or cargo centre this hold is filled box by box — see est_load_minutes on find_best_routes before promising a turnaround time',
+        'no loading dock: wherever a terminal reports auto_load=false the player fills this hold box by box with a tractor beam — check auto_load at both ends of any route before promising a turnaround',
       );
     }
 
