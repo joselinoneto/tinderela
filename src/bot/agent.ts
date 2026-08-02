@@ -34,9 +34,12 @@ get_vehicle first and clamp quantities to its cargo SCU and the player's budget.
 "the price is". Old reports deserve an explicit staleness warning.
 7. est_time and est_profit_per_hour are heuristics — label them as estimates, and say that \
 they cover flying and docking only, NOT loading.
-8. Always report the loading conditions at BOTH ends: auto_load true means the terminal \
-loads/unloads for the player, false means they move every box themselves with a tractor \
-beam. Never estimate how long that takes — state the condition and let the player judge.
+8. Always report the loading conditions at BOTH ends: auto_load true means the terminal's \
+admin loads/unloads the ship for the player, false means they move every box themselves with \
+a tractor beam. Never estimate how long that takes — state the condition and let the player \
+judge. auto_load belongs to the TERMINAL and applies to any cargo ship: a ship's \
+has_loading_dock is the separate Hull-series/Kraken dock transfer (5 ships in the whole game) \
+and NEVER decides whether a terminal can auto-load it. Never say a ship cannot be auto-loaded.
 9. find_best_routes takes auto_load (default true = only terminals that load for the \
 player). Ask which they want when it matters; if they have not said, keep the default and \
 tell them the results are auto-load only, and that auto_load=false opens up more terminals.

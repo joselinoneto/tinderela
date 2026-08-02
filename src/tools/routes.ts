@@ -333,10 +333,17 @@ export const getVehicleTool = defineTool({
     const notes: string[] = [];
     if (vehicle.is_concept === 1) notes.push('concept ship — not flyable in the live game');
     if (vehicle.scu === 0) notes.push('no cargo capacity reported; do not plan cargo runs with this vehicle');
-    if (vehicle.scu > 0 && vehicle.is_loading_dock === 0) {
+    if (vehicle.scu > 0) {
+      // The bot once told a Railen pilot it could not be auto-loaded because
+      // the ship has no loading dock. Those are unrelated mechanisms.
       notes.push(
-        'no loading dock: wherever a terminal reports auto_load=false the player fills this hold box by box with a tractor beam — check auto_load at both ends of any route before promising a turnaround',
+        'auto-load is a property of the TERMINAL, never of the ship: where a terminal reports auto_load=true the admin loads and unloads any cargo ship, this one included. Do not infer loading from has_loading_dock.',
       );
+      if (vehicle.is_loading_dock === 1) {
+        notes.push(
+          'has_loading_dock: this ship also supports the dedicated loading-dock transfer used by the Hull series and the Kraken — a separate mechanism, not a requirement for terminal auto-load',
+        );
+      }
     }
 
     return ok(
@@ -350,6 +357,7 @@ export const getVehicleTool = defineTool({
         fuel_hydrogen: vehicle.fuel_hydrogen || null,
         container_sizes_scu: vehicle.container_sizes,
         pad_type: vehicle.pad_type,
+        /** Hull-series/Kraken dock transfer. NOT related to terminal auto-load. */
         has_loading_dock: vehicle.is_loading_dock === 1,
         has_tractor_beam: vehicle.is_tractor_beam === 1,
         is_cargo_ship: vehicle.is_cargo === 1,

@@ -47,3 +47,6 @@ Users ask in Portuguese or English; answer in the language of the question.
   `auto_load` (UEX `is_auto_load`, joined from the terminal record — route rows
   do not carry it) and let the player decide. Do not add a per-SCU loading-time
   model; `est_time_minutes` covers flying and docking only.
+- `auto_load` is a TERMINAL property and applies to every cargo ship. A ship's
+  `is_loading_dock` is the unrelated Hull-series/Kraken dock transfer (5 ships
+  in UEX). Never derive one from the other, in code or in prose.

@@ -65,7 +65,11 @@ player decides:
   the error says to retry with `auto_load=false`.
 - `where_to_buy` / `where_to_sell` report `auto_load` and `container_sizes` per
   terminal.
-- `get_vehicle` reports `has_loading_dock` and `has_tractor_beam`.
+- `get_vehicle` reports `has_loading_dock` and `has_tractor_beam` — note that
+  `has_loading_dock` is the Hull-series/Kraken dock transfer (5 ships in UEX)
+  and has **nothing** to do with auto-load: `auto_load` belongs to the terminal
+  and applies to every cargo ship. Deriving one from the other is a bug (it
+  once made the bot tell a Railen pilot their ship could not be auto-loaded).
 - `est_time_minutes` / `est_profit_per_hour_uec` cover **flying and docking
   only** — `TIME_MODEL_NOTE` says so in every route answer.
 

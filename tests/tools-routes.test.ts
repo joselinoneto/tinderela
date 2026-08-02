@@ -233,7 +233,7 @@ describe('get_vehicle', () => {
     expect(data.is_cargo_ship).toBe(true);
   });
 
-  it('reports the loading interface and warns when the hold is filled by hand', async () => {
+  it('reports the ship loading interfaces', async () => {
     const ctx = makeTestContext();
     const result = await runTool(getVehicleTool, ctx, { name: 'C2' });
     expect(result.ok).toBe(true);
@@ -241,7 +241,33 @@ describe('get_vehicle', () => {
     const data = result.data as { has_loading_dock: boolean; has_tractor_beam: boolean };
     expect(data.has_loading_dock).toBe(false);
     expect(data.has_tractor_beam).toBe(false);
-    expect(result.meta.notes.join(' ')).toContain('no loading dock');
+  });
+
+  it('never implies a ship without a loading dock cannot be auto-loaded', async () => {
+    const ctx = makeTestContext();
+    // The Railen has no loading dock (only the Hull series and Kraken do) but
+    // is auto-loaded by any admin terminal that supports it.
+    const result = await runTool(getVehicleTool, ctx, { name: 'Railen' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const data = result.data as { cargo_scu: number; has_loading_dock: boolean };
+    expect(data.cargo_scu).toBe(640);
+    expect(data.has_loading_dock).toBe(false);
+
+    const notes = result.meta.notes.join(' ');
+    expect(notes).toContain('property of the TERMINAL');
+    // The old wording tied hauling to the ship and produced a wrong answer.
+    expect(notes).not.toContain('no loading dock');
+  });
+
+  it('explains the loading dock on the few ships that have one', async () => {
+    const ctx = makeTestContext();
+    const result = await runTool(getVehicleTool, ctx, { name: 'Hull C' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const data = result.data as { has_loading_dock: boolean };
+    expect(data.has_loading_dock).toBe(true);
+    expect(result.meta.notes.join(' ')).toContain('not a requirement for terminal auto-load');
   });
 });
 
