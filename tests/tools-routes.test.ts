@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeRouteEconomics } from '../src/domain/routes.js';
+import { LOADING_HEURISTICS, TRAVEL_HEURISTICS } from '../src/config.js';
+import { computeRouteEconomics, isAssistedStop, stopMinutes } from '../src/domain/routes.js';
 import {
   distanceBetweenTool,
   findBestRoutesTool,
@@ -46,11 +47,45 @@ describe('computeRouteEconomics', () => {
   it('estimates time and profit/hour from the documented heuristics', () => {
     const econ = computeRouteEconomics(SAMPLE_ROUTE, 100, 10_000_000);
     if (!econ) throw new Error('expected economics');
-    // 69 Gm / 10 Gm-per-min + 2 * 15 min = 36.9 min
-    expect(econ.est_time_minutes).toBeCloseTo(36.9, 1);
-    expect(econ.est_profit_per_hour_uec).toBeCloseTo((100 * 1800) / (36.9 / 60), 0);
+    // No terminal flags on the sample route, so both stops are manual:
+    // 69 Gm / 10 Gm-per-min + 2 * (15 min + 100 SCU * 0.4 min) = 116.9 min
+    const expected = 6.9 + 2 * (15 + 100 * LOADING_HEURISTICS.manualMinutesPerScu);
+    expect(econ.est_time_minutes).toBeCloseTo(expected, 1);
+    expect(econ.est_load_minutes).toBeCloseTo(55, 1);
+    expect(econ.est_unload_minutes).toBeCloseTo(55, 1);
+    expect(econ.est_profit_per_hour_uec).toBeCloseTo((100 * 1800) / (expected / 60), 0);
     expect(econ.profit_per_gm_uec).toBeCloseTo((100 * 1800) / 69, 1);
     expect(econ.uex_score).toBe(100);
+  });
+
+  it('charges cargo handling per SCU, so a big hold costs more than a small one', () => {
+    const small = computeRouteEconomics(SAMPLE_ROUTE, 10, 10_000_000);
+    const big = computeRouteEconomics(SAMPLE_ROUTE, 400, 10_000_000);
+    if (!small || !big) throw new Error('expected economics');
+    // The old flat model gave both the same 36.9 min and made profit/hour scale
+    // with hold size; handling time now grows with the load.
+    expect(big.est_time_minutes).toBeGreaterThan(small.est_time_minutes * 4);
+  });
+
+  it('treats a freight elevator or cargo centre as assisted loading', () => {
+    const assisted = computeRouteEconomics(
+      { ...SAMPLE_ROUTE, has_freight_elevator_origin: 1, has_cargo_center_destination: 1 },
+      400,
+      10_000_000,
+    );
+    const manual = computeRouteEconomics(SAMPLE_ROUTE, 400, 10_000_000);
+    if (!assisted || !manual) throw new Error('expected economics');
+    expect(assisted.cargo_handling_origin).toBe('assisted');
+    expect(assisted.cargo_handling_destination).toBe('assisted');
+    expect(manual.cargo_handling_origin).toBe('manual');
+    expect(assisted.est_load_minutes).toBeLessThan(manual.est_load_minutes);
+    expect(assisted.est_profit_per_hour_uec).toBeGreaterThan(manual.est_profit_per_hour_uec);
+  });
+
+  it('falls back to manual when the terminal flags are missing', () => {
+    const econ = computeRouteEconomics(SAMPLE_ROUTE, 50, 10_000_000);
+    expect(econ?.cargo_handling_origin).toBe('manual');
+    expect(econ?.cargo_handling_destination).toBe('manual');
   });
 
   it('returns null for unprofitable or unpriced routes', () => {
@@ -160,5 +195,33 @@ describe('get_vehicle', () => {
     expect(data.name).toBe('Crusader C2 Hercules Starlifter');
     expect(data.cargo_scu).toBe(696);
     expect(data.is_cargo_ship).toBe(true);
+  });
+
+  it('reports the loading interface and warns when the hold is filled by hand', async () => {
+    const ctx = makeTestContext();
+    const result = await runTool(getVehicleTool, ctx, { name: 'C2' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const data = result.data as { has_loading_dock: boolean; has_tractor_beam: boolean };
+    expect(data.has_loading_dock).toBe(false);
+    expect(data.has_tractor_beam).toBe(false);
+    expect(result.meta.notes.join(' ')).toContain('no loading dock');
+  });
+});
+
+describe('loading heuristics', () => {
+  it('reads a freight elevator or cargo centre as assisted, anything else as manual', () => {
+    expect(isAssistedStop(1, 0)).toBe('assisted');
+    expect(isAssistedStop(0, 1)).toBe('assisted');
+    expect(isAssistedStop(0, 0)).toBe('manual');
+  });
+
+  it('adds per-SCU handling on top of the fixed docking overhead', () => {
+    expect(stopMinutes(0, 'manual')).toBe(TRAVEL_HEURISTICS.stopOverheadMinutes);
+    expect(stopMinutes(100, 'manual')).toBeCloseTo(
+      TRAVEL_HEURISTICS.stopOverheadMinutes + 100 * LOADING_HEURISTICS.manualMinutesPerScu,
+      5,
+    );
+    expect(stopMinutes(100, 'assisted')).toBeLessThan(stopMinutes(100, 'manual'));
   });
 });

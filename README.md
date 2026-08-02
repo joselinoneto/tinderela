@@ -45,6 +45,24 @@ All tools return structured JSON with a `meta` block (data age in seconds,
 `fetched_at` timestamp, game version, source terminal names). Errors are
 explicit objects, never silent fallbacks.
 
+### Cargo handling (why a full hold is not free)
+
+Every route stop is scored as `assisted` (UEX reports a freight elevator or
+cargo centre at that terminal — the station moves the boxes) or `manual` (it
+goes by tractor beam). `est_time_minutes` is then quantum cruise plus, at each
+stop, a fixed docking overhead **and per-SCU handling** — so a 576 SCU
+Caterpillar run no longer costs the same 30 minutes as a 2 SCU hop, and
+`est_profit_per_hour_uec` stops scaling with hold size. `find_best_routes`
+reports `cargo_handling_origin`/`_destination`, `est_load_minutes` and
+`est_unload_minutes` per route; `get_vehicle` reports `has_loading_dock` and
+`has_tractor_beam`.
+
+> ⚠️ The per-SCU rates in `LOADING_HEURISTICS` (`src/config.ts`) are
+> **unverified placeholders** — 0.05 min/SCU assisted, 0.4 min/SCU manual. Time
+> a couple of real runs (wall clock ÷ SCU) and replace them. Every figure
+> derived from them is labelled an estimate in tool output, and the note is
+> carried into the answer.
+
 ## Caching
 
 SQLite (`better-sqlite3`), TTL per data class (configured in `src/config.ts`):
@@ -64,8 +82,10 @@ npm run scan -- --ship C2 --budget 800000 --from "Area 18" --illegal
 ```
 
 Sort keys: `hour` (est. profit/hour, default) | `profit` | `roi` | `scu` | `gm`.
-Rows are flagged `⚠ILLEGAL` and `!old-gv` (report from an older game version);
-time and profit/hour columns are heuristics (constants in `src/config.ts`).
+Rows are flagged `⚠ILLEGAL`, `!old-gv` (report from an older game version) and
+`hand-load <n>min` (no freight elevator at one end — that is how much of `~MIN`
+is you and a tractor beam). Time and profit/hour columns are heuristics
+(constants in `src/config.ts`); see [Cargo handling](#cargo-handling-why-a-full-hold-is-not-free).
 
 ## Discord bot
 

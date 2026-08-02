@@ -178,6 +178,16 @@ export interface CommodityRoute {
   game_version_destination: string;
   has_docking_port_origin: number;
   has_docking_port_destination: number;
+  /** Cargo-handling flags: drive the assisted/manual loading estimate. */
+  has_freight_elevator_origin: number;
+  has_freight_elevator_destination: number;
+  has_cargo_center_origin: number;
+  has_cargo_center_destination: number;
+  has_loading_dock_origin: number;
+  has_loading_dock_destination: number;
+  /** Container sizes the terminal accepts, e.g. "1,2,4,8,16". */
+  container_sizes_origin: string | null;
+  container_sizes_destination: string | null;
   is_space_station_origin: number;
   is_space_station_destination: number;
   date_added: number;
@@ -221,6 +231,10 @@ export interface Vehicle {
   fuel_quantum: number;
   fuel_hydrogen: number;
   container_sizes: string | null;
+  /** Ship has a loading-dock interface (Hull series and little else). */
+  is_loading_dock: number;
+  /** Ship ships with a cargo-capable tractor beam. */
+  is_tractor_beam: number;
   is_cargo: number;
   is_spaceship: number;
   is_ground_vehicle: number;

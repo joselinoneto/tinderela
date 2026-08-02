@@ -136,6 +136,9 @@ export const findBestRoutesTool = defineTool({
               star_system: r.origin_star_system_name,
               price_per_scu: r.price_origin,
               reported_supply_scu: r.scu_origin,
+              has_freight_elevator: r.has_freight_elevator_origin === 1,
+              is_cargo_center: r.has_cargo_center_origin === 1,
+              container_sizes_scu: r.container_sizes_origin,
               game_version: r.game_version_origin,
             },
             sell: {
@@ -144,6 +147,9 @@ export const findBestRoutesTool = defineTool({
               star_system: r.destination_star_system_name,
               price_per_scu: r.price_destination,
               reported_demand_scu: r.scu_destination,
+              has_freight_elevator: r.has_freight_elevator_destination === 1,
+              is_cargo_center: r.has_cargo_center_destination === 1,
+              container_sizes_scu: r.container_sizes_destination,
               game_version: r.game_version_destination,
             },
             game_version_outdated:
@@ -167,6 +173,14 @@ export const findBestRoutesTool = defineTool({
     notes.push(
       'sorted by profit_total_uec; est_profit_per_hour_uec, profit_per_gm_uec, roi_percent and uex_score are included for alternative rankings',
     );
+    const manualStops = results.filter(
+      (r) => r.cargo_handling_origin === 'manual' || r.cargo_handling_destination === 'manual',
+    );
+    if (manualStops.length > 0) {
+      notes.push(
+        'cargo_handling "manual" means UEX reports no freight elevator or cargo centre at that terminal — the load moves by tractor beam, which est_load_minutes/est_unload_minutes account for. Tell the player when a big load is hand-hauled.',
+      );
+    }
     return ok(
       {
         unit: 'aUEC per SCU; distances in Gm',
@@ -302,6 +316,11 @@ export const getVehicleTool = defineTool({
     const notes: string[] = [];
     if (vehicle.is_concept === 1) notes.push('concept ship — not flyable in the live game');
     if (vehicle.scu === 0) notes.push('no cargo capacity reported; do not plan cargo runs with this vehicle');
+    if (vehicle.scu > 0 && vehicle.is_loading_dock === 0) {
+      notes.push(
+        'no loading dock: at terminals without a freight elevator or cargo centre this hold is filled box by box — see est_load_minutes on find_best_routes before promising a turnaround time',
+      );
+    }
 
     return ok(
       {
@@ -314,6 +333,8 @@ export const getVehicleTool = defineTool({
         fuel_hydrogen: vehicle.fuel_hydrogen || null,
         container_sizes_scu: vehicle.container_sizes,
         pad_type: vehicle.pad_type,
+        has_loading_dock: vehicle.is_loading_dock === 1,
+        has_tractor_beam: vehicle.is_tractor_beam === 1,
         is_cargo_ship: vehicle.is_cargo === 1,
         is_ground_vehicle: vehicle.is_ground_vehicle === 1,
         is_concept: vehicle.is_concept === 1,

@@ -32,7 +32,12 @@ every number you present.
 get_vehicle first and clamp quantities to its cargo SCU and the player's budget.
 6. UEX data is community-crowdsourced — phrase answers as "last reported at …", never as \
 "the price is". Old reports deserve an explicit staleness warning.
-7. est_time and est_profit_per_hour figures are heuristics — label them as estimates.
+7. est_time, est_load_minutes, est_unload_minutes and est_profit_per_hour figures are \
+heuristics — label them as estimates.
+8. Loading is part of the run. When a route has cargo_handling "manual" at either end the \
+load moves box by box, and est_load_minutes/est_unload_minutes say how long that takes — say \
+so whenever it is a large load, and prefer the route with the shorter total time when profit \
+is close. Never present est_profit_per_hour without the handling it assumes.
 
 Conversation:
 - Every question opens its own Discord thread and the player replies inside it, \

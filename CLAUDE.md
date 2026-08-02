@@ -37,5 +37,8 @@ Users ask in Portuguese or English; answer in the language of the question.
   numbers inline.
 - Small commits, conventional commit messages (`feat:`, `fix:`, `test:`, ...).
 - Never commit `.env` or the UEX token.
-- Travel-time and fuel figures are heuristics — label them as estimates in
-  tool output; only prices/distances come from UEX directly.
+- Travel-time, cargo-handling and fuel figures are heuristics — label them as
+  estimates in tool output; only prices, distances and the terminal/ship
+  capability flags come from UEX directly.
+- Loading time scales with the load: keep `est_time_minutes` a function of SCU
+  and of whether the terminal assists, never a flat per-stop constant.

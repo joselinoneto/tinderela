@@ -180,7 +180,15 @@ async function main(): Promise<void> {
   console.log('-'.repeat(header.length));
 
   rows.forEach((r, i) => {
-    const marks = [r.illegal ? '⚠ILLEGAL' : '', r.outdated ? '!old-gv' : ''].filter(Boolean).join(' ');
+    const handLoaded =
+      r.cargo_handling_origin === 'manual' || r.cargo_handling_destination === 'manual';
+    const marks = [
+      r.illegal ? '⚠ILLEGAL' : '',
+      r.outdated ? '!old-gv' : '',
+      handLoaded ? `hand-load ${Math.round(r.est_load_minutes + r.est_unload_minutes)}min` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
     console.log(
       [
         String(i + 1).padStart(2),
