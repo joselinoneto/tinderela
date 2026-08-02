@@ -72,10 +72,10 @@ echo "    compose on the Pi: $COMPOSE"
 # are checked out with CRLF, and a stray CR in .env becomes part of the token
 # value (the bot then sees DISCORD_BOT_TOKEN="\r" and dies).
 if [ "$COMPOSE" = "docker-compose" ]; then
-  tr -d '\r' < docker-compose.pi.yml | grep -v 'pull_policy' \
+  tr -d '\r' < docker-compose.yml | grep -v 'pull_policy' \
     | ssh "$PI_HOST" "cat > '$PI_DIR/docker-compose.yml'"
 else
-  tr -d '\r' < docker-compose.pi.yml \
+  tr -d '\r' < docker-compose.yml \
     | ssh "$PI_HOST" "cat > '$PI_DIR/docker-compose.yml'"
 fi
 

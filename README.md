@@ -97,8 +97,8 @@ git clone https://github.com/joselinoneto/tinderela.git
 cd tinderela
 cp .env.example .env
 nano .env                                          # the three tokens
-docker compose -f docker-compose.pi.yml up -d --build
-docker compose -f docker-compose.pi.yml logs -f
+docker compose up -d --build
+docker compose logs -f
 ```
 
 The Pi builds its own image (native, no emulation) — a couple of minutes on a

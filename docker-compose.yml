@@ -2,9 +2,9 @@
 # beside it with UEX_API_TOKEN, ANTHROPIC_API_KEY and DISCORD_BOT_TOKEN:
 #
 #   on the Pi, from a clone of this repo:
-#     docker compose -f docker-compose.pi.yml up -d --build
+#     docker compose up -d --build
 #
-#   from a dev machine (copies this file to the Pi as docker-compose.yml):
+#   from a dev machine (copies this file to the Pi):
 #     ./scripts/deploy-pi.sh pi@raspberrypi.local
 services:
   bot:
