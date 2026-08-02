@@ -1,2 +1,5 @@
 # Shell scripts must keep LF endings — CRLF breaks them under bash (and on the Pi).
 *.sh text eol=lf
+# Deployed to Linux as-is; a CRLF in .env would end up inside the token values.
+*.yml text eol=lf
+.env.example text eol=lf
