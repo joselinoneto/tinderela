@@ -6,6 +6,11 @@ logistics — in Portuguese or English — with grounded, verifiable numbers.
 
 All market data comes from the [UEX API 2.0](https://uexcorp.space/api/documentation/).
 
+This is a personal research project: it validates ideas from Anthropic's
+courses (agent skills, Claude API, MCP, Claude Code) on a real domain. The
+motivation, hypotheses and implementation are written up in the
+[project report](docs/project-report.md).
+
 ## Data attribution
 
 Market data © [UEX Corp](https://uexcorp.space) — community-crowdsourced Star
