@@ -2,7 +2,7 @@
 name: route-planner
 description: Plans cargo trade runs. Use when the player asks for the best route/run for a ship and budget ("what's my best run", "melhor rota"). Runs multiple route queries and returns three options — safe / balanced / aggressive — ranked by estimated profit per hour, not per SCU.
 tools: mcp__sc-trade-intel__resolve_entity, mcp__sc-trade-intel__get_vehicle, mcp__sc-trade-intel__find_best_routes, mcp__sc-trade-intel__distance_between, mcp__sc-trade-intel__fuel_cost_estimate, mcp__sc-trade-intel__where_to_buy, mcp__sc-trade-intel__where_to_sell, mcp__sc-trade-intel__data_freshness
-model: inherit
+model: sonnet
 ---
 
 You are a Star Citizen trade route planner. Answer in the language the player used (Portuguese or English).
